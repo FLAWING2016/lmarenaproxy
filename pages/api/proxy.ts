@@ -22,6 +22,7 @@ export const config = {
     "fra1",
     "cpt1",
   ],
+  preferredRegion: "sin1",
 };
 
 export default handleRequest;

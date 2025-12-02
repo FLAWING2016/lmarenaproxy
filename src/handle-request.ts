@@ -14,35 +14,63 @@ const pickHeaders = (headers: Headers, keys: (string | RegExp)[]): Headers => {
 const CORS_HEADERS: Record<string, string> = {
   "access-control-allow-origin": "*",
   "access-control-allow-methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "access-control-allow-headers": "Content-Type, Authorization",
+  "access-control-allow-headers": "Content-Type, Authorization, Accept, X-Requested-With, OpenAI-Organization, OpenAI-Project",
+  "access-control-expose-headers": "content-type, x-ratelimit-limit, x-ratelimit-remaining, x-ratelimit-reset, openai-model, openai-processing-ms",
+  "access-control-max-age": "86400",
 };
 
 export default async function handleRequest(req: Request & { nextUrl?: URL }) {
   if (req.method === "OPTIONS") {
-    return new Response(null, {
-      headers: CORS_HEADERS,
-    });
+    const reqMethod = req.headers.get("access-control-request-method");
+    const reqHeaders = req.headers.get("access-control-request-headers");
+    const headers = {
+      ...CORS_HEADERS,
+      ...(reqMethod ? { "access-control-allow-methods": reqMethod } : {}),
+      ...(reqHeaders ? { "access-control-allow-headers": reqHeaders } : {}),
+    };
+    return new Response(null, { headers });
   }
 
-  const { pathname, search } = req.nextUrl ? req.nextUrl : new URL(req.url);
-  const url = new URL(pathname + search, "https://api.openai.com").href;
-  const headers = pickHeaders(req.headers, ["content-type", "authorization"]);
+  try {
+    const { pathname, search } = req.nextUrl ? req.nextUrl : new URL(req.url);
+    const forwardPath = pathname.startsWith("/api/proxy")
+      ? pathname.slice("/api/proxy".length) || "/"
+      : pathname;
+    const targetUrl = new URL(forwardPath + search, "https://api.openai.com");
+    const headers = pickHeaders(req.headers, [
+      "content-type",
+      "authorization",
+      "accept",
+      /^openai-/,
+      /^x-openai-/,
+    ]);
 
-  const res = await fetch(url, {
-    body: req.body,
-    method: req.method,
-    headers,
-  });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort("timeout"), 30000);
+    const res = await fetch(targetUrl.href, {
+      body: ["GET", "HEAD"].includes(req.method) ? undefined : req.body,
+      method: req.method,
+      headers,
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
 
-  const resHeaders = {
-    ...CORS_HEADERS,
-    ...Object.fromEntries(
-      pickHeaders(res.headers, ["content-type", /^x-ratelimit-/, /^openai-/])
-    ),
-  };
+    const resHeaders = {
+      ...CORS_HEADERS,
+      ...Object.fromEntries(
+        pickHeaders(res.headers, ["content-type", /^x-ratelimit-/, /^openai-/])
+      ),
+    };
 
-  return new Response(res.body, {
-    headers: resHeaders,
-    status: res.status
-  });
+    return new Response(res.body, {
+      headers: resHeaders,
+      status: res.status,
+      statusText: res.statusText,
+    });
+  } catch (e) {
+    return new Response(JSON.stringify({ error: "upstream_error" }), {
+      headers: { ...CORS_HEADERS, "content-type": "application/json" },
+      status: 502,
+    });
+  }
 }
