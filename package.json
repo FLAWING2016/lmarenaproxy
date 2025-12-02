@@ -1,5 +1,5 @@
 {
-  "name": "openai-proxy",
+  "name": "lm-proxy",
   "version": "0.0.0",
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20230307.0",
