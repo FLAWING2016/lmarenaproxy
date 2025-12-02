@@ -41,6 +41,17 @@ export default async function handleRequest(req: Request & { nextUrl?: URL }) {
       "content-type",
       "authorization",
       "accept",
+      "user-agent",
+      "accept-language",
+      "referer",
+      "cookie",
+      "sec-ch-ua",
+      "sec-ch-ua-mobile",
+      "sec-ch-ua-platform",
+      "sec-fetch-site",
+      "sec-fetch-mode",
+      "sec-fetch-dest",
+      "upgrade-insecure-requests",
       /^openai-/,
       /^x-openai-/,
     ]);
@@ -54,6 +65,21 @@ export default async function handleRequest(req: Request & { nextUrl?: URL }) {
       signal: controller.signal,
     });
     clearTimeout(timer);
+
+    const ct = res.headers.get("content-type") || "";
+    if (ct.includes("text/html")) {
+      const preview = await res.clone().text();
+      if (
+        preview.includes("无法验证您的浏览器") ||
+        preview.includes("Vercel 安全检查点") ||
+        preview.toLowerCase().includes("unable to verify your browser")
+      ) {
+        return new Response(null, {
+          status: 307,
+          headers: { ...CORS_HEADERS, Location: targetUrl.href },
+        });
+      }
+    }
 
     const resHeaders = {
       ...CORS_HEADERS,
