@@ -36,7 +36,7 @@ export default async function handleRequest(req: Request & { nextUrl?: URL }) {
     const forwardPath = pathname.startsWith("/api/proxy")
       ? pathname.slice("/api/proxy".length) || "/"
       : pathname;
-    const targetUrl = new URL(forwardPath + search, "https://lmarena.ai");
+    const targetUrl = new URL(forwardPath + search, "https://baidu.com");
     const headers = pickHeaders(req.headers, [
       "content-type",
       "authorization",
