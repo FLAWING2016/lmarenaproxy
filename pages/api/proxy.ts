@@ -23,6 +23,7 @@ export const config = {
     "cpt1",
   ],
   preferredRegion: "sin1",
+  maxDuration: 30,
 };
 
 export default handleRequest;

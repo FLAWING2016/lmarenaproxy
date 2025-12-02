@@ -11,6 +11,7 @@
   "scripts": {
     "dev-cloudflare": "wrangler dev",
     "deploy-cloudflare": "wrangler publish",
+    "deploy": "wrangler publish",
     "dev-next": "next",
     "vercel-build": "next build"
   },
